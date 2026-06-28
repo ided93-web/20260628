@@ -25,7 +25,7 @@
                 <span class="text-2xl animate-bounce">🏮</span>
                 <div>
                     <h1 class="font-black text-lg tracking-tight">짜장면 시키신 분!</h1>
-                    <p class="text-xs text-red-200" id="connection-status">☁️ 클라우드 연결 대기 중...</p>
+                    <p class="text-xs text-red-200 animate-pulse" id="connection-status">☁️ 클라우드 연결 대기 중...</p>
                 </div>
             </div>
             <!-- Role Toggle Badge -->
@@ -36,6 +36,23 @@
     </header>
 
     <main class="max-w-md mx-auto px-4 mt-4 space-y-4">
+
+        <!-- Error Diagnosis Panel (Visible only when cloud connection fails) -->
+        <div id="debug-error-panel" class="hidden bg-rose-50 border-2 border-rose-300 p-4 rounded-2xl shadow-sm text-xs text-rose-950 space-y-2">
+            <div class="flex items-center gap-1.5 text-rose-700 font-extrabold text-sm">
+                <span>🚨</span>
+                <span>Firebase 실시간 연결 실패 진단</span>
+            </div>
+            <p class="font-bold leading-relaxed">
+                파이어베이스와 연결을 시도했으나 아래 에러로 인해 차단되었습니다.
+            </p>
+            <div class="bg-rose-950 text-rose-200 p-3 rounded-xl font-mono break-all leading-relaxed" id="debug-error-message">
+                에러 로딩 중...
+            </div>
+            <div class="text-[11px] text-rose-800 font-medium pt-1 space-y-1" id="debug-error-tip">
+                <!-- Dynamic diagnostic tips will go here -->
+            </div>
+        </div>
 
         <!-- Info Card for Users -->
         <div id="welcome-card" class="bg-gradient-to-br from-red-500 to-red-600 text-white p-5 rounded-2xl shadow-md space-y-2">
@@ -185,20 +202,18 @@
         // [필수 설정] 본인의 깃허브에 올릴 때 아래에 본인의 Firebase 웹 앱 설정을 붙여넣어 주세요!
         // 이 설정을 채워 깃허브에 올리시면 8명이 각자의 폰으로 실시간 연결이 가능해집니다.
         // =========================================================================
-        const firebaseConfig = {
-          apiKey: "AIzaSyCNKC8amFCgOPLE3LPWdBAXaCRTREvhpeU",
-          authDomain: "jajang-order.firebaseapp.com",
-          projectId: "jajang-order",
-          storageBucket: "jajang-order.firebasestorage.app",
-          messagingSenderId: "925682501552",
-          appId: "1:925682501552:web:4e29a7336e26055ac5f875",
-          measurementId: "G-C1GSX3WTMD"
+        const MY_FIREBASE_CONFIG = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
         // =========================================================================
 
         // 1. Menu Database Matching User Photo
         const MENU_DATA = [
-            // 면류
             { id: 'm1', category: '면류', name: '짜장면', cashPrice: 4000, normalPrice: 6000 },
             { id: 'm2', category: '면류', name: '간짜장', cashPrice: 6000, normalPrice: 7000 },
             { id: 'm3', category: '면류', name: '짬뽕', cashPrice: 6000, normalPrice: 7000 },
@@ -212,7 +227,7 @@
             { id: 'm11', category: '면류', name: '삼선울면', cashPrice: 12000, normalPrice: 13000 },
             { id: 'm12', category: '면류', name: '불(매운)해물짬뽕', cashPrice: 12000, normalPrice: 13000 },
             { id: 'm13', category: '면류', name: '소고기(숙주)짬뽕', cashPrice: 10000, normalPrice: 11000 },
-            // 밥류
+            
             { id: 'r1', category: '밥류', name: '짜장밥', cashPrice: 7000, normalPrice: 8000 },
             { id: 'r2', category: '밥류', name: '짬뽕밥', cashPrice: 7000, normalPrice: 8000 },
             { id: 'r3', category: '밥류', name: '사천볶음밥', cashPrice: 7000, normalPrice: 8000 },
@@ -223,18 +238,18 @@
             { id: 'r8', category: '밥류', name: '새우볶음밥', cashPrice: 9000, normalPrice: 10000 },
             { id: 'r9', category: '밥류', name: '삼선볶음밥', cashPrice: 10000, normalPrice: 11000 },
             { id: 'r10', category: '밥류', name: '삼선짬뽕밥', cashPrice: 13000, normalPrice: 14000 },
-            // 시원한 면류
+
             { id: 'c1', category: '시원한 면류', name: '콩국수', cashPrice: 7000, normalPrice: 8000 },
             { id: 'c2', category: '시원한 면류', name: '냉짬뽕', cashPrice: 8000, normalPrice: 9000 },
             { id: 'c3', category: '시원한 면류', name: '냉우동', cashPrice: 8000, normalPrice: 9000 },
-            // 두가지맛
+
             { id: 'd1', category: '두가지맛', name: '짬짜면', cashPrice: 7000, normalPrice: 8000 },
             { id: 'd2', category: '두가지맛', name: '볶짜면', cashPrice: 8000, normalPrice: 9000 },
             { id: 'd3', category: '두가지맛', name: '볶짬면', cashPrice: 8000, normalPrice: 9000 },
             { id: 'd4', category: '두가지맛', name: '탕짜면', cashPrice: 9000, normalPrice: 10000 },
             { id: 'd5', category: '두가지맛', name: '탕짬면', cashPrice: 9000, normalPrice: 10000 },
             { id: 'd6', category: '두가지맛', name: '탕볶밥', cashPrice: 10000, normalPrice: 11000 },
-            // 요리류
+
             { id: 'y1', category: '요리/탕류', name: '탕수육(소)', cashPrice: 15000, normalPrice: 17000 },
             { id: 'y2', category: '요리/탕류', name: '사천탕수육', cashPrice: 18000, normalPrice: 20000 },
             { id: 'y3', category: '요리/탕류', name: '깐풍기', cashPrice: 20000, normalPrice: 22000 },
@@ -244,24 +259,22 @@
             { id: 'y7', category: '요리/탕류', name: '군만두', cashPrice: 5000, normalPrice: 6000 }
         ];
 
-        // Categories List
         const CATEGORIES = ['면류', '밥류', '시원한 면류', '두가지맛', '요리/탕류'];
         const DEFAULT_NAMES = ["박", "표", "이", "정", "구", "최", "한", "홍"];
 
         // State Management
         let state = {
             isAdmin: false,
-            activeSlotId: null, // slot currently editing (1 to 8)
+            activeSlotId: null,
             activeCategory: '면류',
-            selectedMenu: null, // menu selected in editing panel
-            dbSlots: {}, // Realtime Cloud data loaded from Firebase
+            selectedMenu: null,
+            dbSlots: {},
             isInitialized: false,
-            isLocalMode: false // local device backup if cloud unconfigured
+            isLocalMode: false
         };
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'shared-짜장-order-app';
         
-        // 2. Firebase Config Router (Resolves environment key vs User manual input)
         let firebaseConfig = null;
         if (typeof __firebase_config !== 'undefined' && __firebase_config) {
             firebaseConfig = JSON.parse(__firebase_config);
@@ -269,7 +282,7 @@
             firebaseConfig = MY_FIREBASE_CONFIG;
         }
 
-        // 3. Setup App Initialization Lifecycle
+        // Initialize App
         if (firebaseConfig && firebaseConfig.apiKey) {
             state.isLocalMode = false;
             try {
@@ -278,7 +291,6 @@
                 const db = getFirestore(app);
                 let currentUser = null;
 
-                // Rule 3 Protocol - Call auth signin first
                 const initAuth = async () => {
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -288,6 +300,7 @@
                         }
                     } catch (error) {
                         console.error("Firebase auth error:", error);
+                        showOnScreenDebug("Authentication Error", error);
                         enableLocalFallback("⚠️ 인증 오류 (로컬 대체 모드)");
                     }
                 };
@@ -297,7 +310,7 @@
                     currentUser = user;
                     if (user) {
                         document.getElementById('connection-status').innerText = "⚡ 실시간 클라우드 연결됨";
-                        document.getElementById('connection-status').className = "text-xs text-emerald-300 font-bold";
+                        document.getElementById('connection-status').className = "text-xs text-emerald-300 font-bold animate-none";
                         setupRealtimeListener(db);
                     } else {
                         enableLocalFallback("⚠️ 미연결 상태 (로컬 단독 모드)");
@@ -306,10 +319,10 @@
 
             } catch (err) {
                 console.error("Firebase connection crashed:", err);
+                showOnScreenDebug("Firebase Init Error", err);
                 enableLocalFallback("⚠️ 서버 연결 차단 (로컬)");
             }
         } else {
-            // Unconfigured, switch to secure local storage fallback immediately
             enableLocalFallback("📂 로컬 저장 모드 (기기 보존)");
         }
 
@@ -318,29 +331,24 @@
             state.isInitialized = true;
             document.getElementById('connection-status').innerText = statusMessage;
             document.getElementById('connection-status').className = "text-xs text-amber-300 font-bold animate-none";
-
             loadLocalModeData();
         }
 
-        // 4. Realtime Firestore Listener (RULE 1 & RULE 2 applied)
+        // 4. Realtime Firestore Listener
         function setupRealtimeListener(db) {
-            // STRICT RULE 1 path
             const ordersCol = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
 
-            // Listening real-time without complex queries (RULE 2)
             onSnapshot(ordersCol, (snapshot) => {
                 const cloudData = {};
                 snapshot.forEach(doc => {
                     cloudData[doc.id] = doc.data();
                 });
 
-                // Merge database results with local default slots (1 to 8)
                 for (let i = 1; i <= 8; i++) {
                     const docId = `slot_${i}`;
                     if (cloudData[docId]) {
                         state.dbSlots[i] = cloudData[docId];
                     } else {
-                        // default values if slot not written in DB yet
                         state.dbSlots[i] = {
                             id: i,
                             name: DEFAULT_NAMES[i-1] || `사람 ${i}`,
@@ -357,9 +365,55 @@
                 updateKakaoPreview();
             }, (error) => {
                 console.error("Database sync error: ", error);
+                showOnScreenDebug("Firestore Database Error", error);
                 document.getElementById('connection-status').innerText = "⚠️ 동기화 중단됨";
-                showToast('cloud-error-toast', '❌ 데이터를 불러오는 도중 오류가 발생했습니다.');
             });
+        }
+
+        // Live On-screen Debugger for User Troubleshooting
+        function showOnScreenDebug(type, error) {
+            const panel = document.getElementById('debug-error-panel');
+            const messageBox = document.getElementById('debug-error-message');
+            const tipBox = document.getElementById('debug-error-tip');
+            
+            panel.classList.remove('hidden');
+            
+            let code = error.code || 'UNKNOWN';
+            let message = error.message || error.toString();
+            messageBox.innerText = `[${type}]\nCode: ${code}\nMessage: ${message}`;
+            
+            let tipHTML = "";
+            if (code.includes('auth/operation-not-allowed')) {
+                tipHTML = `
+                    <div class="bg-red-900/10 p-2.5 rounded-lg border border-red-200">
+                        <strong>💡 해결 방법:</strong><br>
+                        Firebase Console ➔ <strong>보안</strong> ➔ <strong>Authentication</strong> ➔ <strong>Sign-in method(로그인 방법)</strong>에서 <strong class="text-rose-700">익명(Anonymous)</strong> 로그인을 활성화하고 반드시 아래 <strong>저장(Save)</strong>을 누르셔야 합니다!
+                    </div>
+                `;
+            } else if (code.includes('permission-denied')) {
+                tipHTML = `
+                    <div class="bg-red-900/10 p-2.5 rounded-lg border border-red-200">
+                        <strong>💡 해결 방법:</strong><br>
+                        Firebase Console ➔ <strong>데이터베이스 및 스토리지</strong> ➔ <strong>Firestore Database (혹은 Firestore)</strong>에 들어가서 상단 <strong>Rules(규칙)</strong> 탭을 누르고, 규칙 내용을 아래와 같이 수정한 뒤 <strong>게시(Publish)</strong>를 눌러주세요.<br>
+                        <code class="block bg-slate-800 text-slate-100 p-2 rounded mt-1 font-mono text-[10px]">allow read, write: if true;</code>
+                    </div>
+                `;
+            } else if (code.includes('auth/invalid-api-key') || message.includes('API key')) {
+                tipHTML = `
+                    <div class="bg-red-900/10 p-2.5 rounded-lg border border-red-200">
+                        <strong>💡 해결 방법:</strong><br>
+                        index.html의 304번째 줄 근처의 <strong class="text-rose-700">MY_FIREBASE_CONFIG</strong>에 붙여넣으신 <strong class="font-mono">apiKey</strong> 값에 오타가 있거나 복사가 잘못되었습니다. 파이어베이스 콘솔 앱 설정의 값을 정확히 다시 입력해 주세요.
+                    </div>
+                `;
+            } else {
+                tipHTML = `
+                    <div class="bg-red-900/10 p-2.5 rounded-lg border border-red-200">
+                        <strong>💡 해결 방법:</strong><br>
+                        네트워크 연결 상태를 확인하시거나, Firestore Database 자체가 생성되었는지 확인해 주세요. (<strong>NoSQL -> Firestore</strong> 메뉴에서 "데이터베이스 만들기"를 완료해야 합니다!)
+                    </div>
+                `;
+            }
+            tipBox.innerHTML = tipHTML;
         }
 
         // Local Storage Mode Handler
@@ -407,7 +461,6 @@
                 updateKakaoPreview();
                 showToast('cloud-success-toast', `💾 ${orderPayload.name}님의 주문이 임시 저장되었습니다!`);
             } else {
-                // Cloud Sync Mode
                 try {
                     const db = getFirestore();
                     const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', `slot_${slotId}`);
@@ -415,7 +468,7 @@
                     showToast('cloud-success-toast', `☁️ ${orderPayload.name}님의 주문이 실시간 업데이트되었습니다!`);
                 } catch (e) {
                     console.error("Cloud save failed:", e);
-                    showToast('cloud-error-toast', '❌ 데이터 전송 실패! 현재 모드에만 임시로 보존됩니다.');
+                    showOnScreenDebug("Cloud Save Failed", e);
                 }
             }
         }
@@ -432,7 +485,6 @@
                 const hasMenu = slot.menu !== null;
                 const isCurrentActive = state.activeSlotId === i;
                 
-                // Card Styling
                 let cardClass = "flex justify-between items-center p-3.5 rounded-2xl border transition-all text-left ";
                 if (isCurrentActive) {
                     cardClass += "border-red-600 bg-red-50/70 ring-2 ring-red-500/25";
@@ -442,7 +494,6 @@
                     cardClass += "border-dashed border-slate-200 bg-slate-50/50 text-slate-400 hover:bg-slate-50";
                 }
 
-                // Menu details HTML
                 let menuInfoHTML = '';
                 if (hasMenu) {
                     const price = slot.paymentType === 'cash' ? slot.menu.cashPrice : slot.menu.normalPrice;
@@ -487,13 +538,11 @@
             }
         }
 
-        // Select a slot and load editing panel
         window.selectSlotForEdit = function(slotId) {
             state.activeSlotId = slotId;
             const slot = state.dbSlots[slotId];
             if (!slot) return;
 
-            // Load values to fields
             document.getElementById('user-name-input').value = slot.name;
             document.getElementById('chk-double').checked = slot.isDouble;
             document.getElementById('select-payment').value = slot.paymentType;
@@ -504,7 +553,6 @@
                 state.activeCategory = slot.menu.category;
             }
 
-            // Open panel UI
             const panel = document.getElementById('edit-panel');
             panel.classList.remove('hidden');
             document.getElementById('edit-panel-title').innerText = `${slot.name} 슬롯 주문 작성`;
@@ -514,7 +562,6 @@
             renderSelectedMenuPreview();
             renderMenus();
 
-            // Smooth scroll to edit panel
             panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
@@ -524,7 +571,6 @@
             renderSlots();
         }
 
-        // Dynamic Categories
         function renderCategoryTabs() {
             const container = document.getElementById('category-tabs');
             container.innerHTML = '';
@@ -548,7 +594,6 @@
             renderMenus();
         }
 
-        // Render List of Menu Items
         window.renderMenus = function() {
             const container = document.getElementById('menu-picker-list');
             container.innerHTML = '';
@@ -626,7 +671,6 @@
             }
         }
 
-        // Action: Submit Single Order to Firebase/Local
         window.submitCurrentOrder = async function() {
             if (!state.activeSlotId) return;
 
@@ -659,7 +703,6 @@
             closeEditPanel();
         }
 
-        // Action: Clear Single Order from Slot
         window.clearCurrentOrder = async function() {
             if (!state.activeSlotId) return;
             
@@ -677,7 +720,6 @@
             closeEditPanel();
         }
 
-        // Role / Mode Toggles
         window.toggleAdminView = function() {
             state.isAdmin = !state.isAdmin;
             const badge = document.getElementById('role-badge');
@@ -693,10 +735,6 @@
                 summaryCard.classList.remove('hidden');
                 resetBtn.classList.remove('hidden');
                 slotsTitle.innerText = "전체 주문 현황 (관리자)";
-                
-                if (state.isLocalMode) {
-                    showToast('cloud-error-toast', 'ℹ️ 현재 로컬 모드입니다. (이 기기에서만 주문 저장 및 확인이 가능합니다)');
-                }
             } else {
                 badge.className = "bg-slate-900/50 hover:bg-slate-900 text-slate-200 text-xs font-bold px-3 py-1.5 rounded-full transition-all";
                 badge.innerText = "👤 일반 모드";
@@ -707,7 +745,6 @@
             }
         }
 
-        // Dynamic Kakao Text Generation (8인 대응)
         function generateKakaoText() {
             if (!state.isInitialized) return "데이터 동기화 대기 중...";
 
@@ -785,7 +822,6 @@
             document.body.removeChild(tempArea);
         }
 
-        // Custom Confirmation dialog (No browser alert/confirm)
         let activeConfirmCallback = null;
         window.openConfirmModal = function(title, desc, onOk) {
             document.getElementById('confirm-title').innerText = title;
@@ -806,7 +842,6 @@
             closeConfirmModal();
         }
 
-        // Confirm Entire Reset Flow
         window.confirmResetAll = function() {
             openConfirmModal(
                 "🚨 전체 주문 초기화",
@@ -819,7 +854,6 @@
                         return;
                     }
 
-                    // Cloud Reset Mode
                     try {
                         const db = getFirestore();
                         for (let i = 1; i <= 8; i++) {
@@ -844,7 +878,6 @@
             );
         }
 
-        // Toast feedback handler
         function showToast(id, msg) {
             const toast = document.getElementById(id);
             if (!toast) return;

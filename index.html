@@ -302,12 +302,27 @@
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'shared-짜장-order-app';
         
         // 2. Firebase Config Router (Resolves environment key vs User manual input)
-        let firebaseConfig = null;
-        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-            firebaseConfig = JSON.parse(__firebase_config);
-        } else if (MY_FIREBASE_CONFIG && MY_FIREBASE_CONFIG.apiKey && MY_FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY") {
-            firebaseConfig = MY_FIREBASE_CONFIG;
-        }
+         // Import the functions you need from the SDKs you need
+        import { initializeApp } from "firebase/app";
+        import { getAnalytics } from "firebase/analytics";
+        // TODO: Add SDKs for Firebase products that you want to use
+        // https://firebase.google.com/docs/web/setup#available-libraries
+        
+        // Your web app's Firebase configuration
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        const firebaseConfig = {
+          apiKey: "AIzaSyCNKC8amFCgOPLE3LPWdBAXaCRTREvhpeU",
+          authDomain: "jajang-order.firebaseapp.com",
+          projectId: "jajang-order",
+          storageBucket: "jajang-order.firebasestorage.app",
+          messagingSenderId: "925682501552",
+          appId: "1:925682501552:web:4e29a7336e26055ac5f875",
+          measurementId: "G-C1GSX3WTMD"
+        };
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 
         // 3. Setup App Initialization Lifecycle
         if (firebaseConfig && firebaseConfig.apiKey) {

@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>짜장면 시키신 분! - 실시간 8인 주문기</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+        .scrollbar-none::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
+
+    <!-- Header -->
+    <header class="bg-red-700 text-white shadow-md sticky top-0 z-40">
+        <div class="max-w-md mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl animate-bounce">🏮</span>
+                <div>
+                    <h1 class="font-black text-lg tracking-tight">짜장면 시키신 분!</h1>
+                    <p class="text-xs text-red-200" id="connection-status">☁️ 클라우드 연결 중...</p>
+                </div>
+            </div>
+            <!-- Role Toggle Badge -->
+            <button onclick="toggleAdminView()" id="role-badge" class="bg-slate-900/50 hover:bg-slate-900 text-slate-200 text-xs font-bold px-3 py-1.5 rounded-full transition-all">
+                👤 일반 모드
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 mt-4 space-y-5">
+
+        <!-- Info Card for Users -->
+        <div id="welcome-card" class="bg-gradient-to-br from-red-500 to-red-600 text-white p-5 rounded-2xl shadow-md space-y-2">
+            <h2 class="font-extrabold text-base">각자 핸드폰으로 주문해 주세요!</h2>
+            <p class="text-xs text-red-100 leading-relaxed">
+                본인의 성씨가 적힌 슬롯을 터치하여 상세 메뉴를 선택한 뒤 <strong>[주문 저장/업데이트]</strong> 버튼을 누르면 실시간으로 취합됩니다.
+            </p>
+        </div>
+
+        <!-- Connection / Cloud Notification Toast -->
+        <div id="toast-container" class="space-y-2">
+            <div id="cloud-success-toast" class="hidden bg-emerald-500 text-white text-xs py-2.5 px-4 rounded-xl text-center font-bold shadow-md transition-all"></div>
+            <div id="cloud-error-toast" class="hidden bg-rose-500 text-white text-xs py-2.5 px-4 rounded-xl text-center font-bold shadow-md transition-all"></div>
+        </div>
+
+        <!-- 1. SLOTS SELECTION / SUMMARY LIST -->
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-3">
+            <div class="flex justify-between items-center">
+                <h3 class="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                    <span>👥</span> 
+                    <span id="slots-title">주문 슬롯 (8인)</span>
+                </h3>
+                <button onclick="confirmResetAll()" id="btn-reset-all" class="hidden text-xs text-rose-600 font-bold hover:underline">
+                    ⚠️ 전체 초기화
+                </button>
+            </div>
+            
+            <!-- 8 Slots List -->
+            <div class="grid grid-cols-1 gap-2.5" id="realtime-slots">
+                <div class="animate-pulse bg-slate-100 h-12 rounded-xl"></div>
+                <div class="animate-pulse bg-slate-100 h-12 rounded-xl"></div>
+                <div class="animate-pulse bg-slate-100 h-12 rounded-xl"></div>
+                <div class="animate-pulse bg-slate-100 h-12 rounded-xl"></div>
+            </div>
+        </div>
+
+        <!-- 2. DETAIL ORDER / EDITING PANEL -->
+        <div id="edit-panel" class="hidden bg-white p-5 rounded-2xl shadow-md border-t-4 border-red-600 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <div class="flex items-center gap-1.5">
+                    <span class="text-base" id="edit-panel-icon">📝</span>
+                    <span class="font-extrabold text-slate-800 text-base" id="edit-panel-title">내 주문 작성</span>
+                </div>
+                <button onclick="closeEditPanel()" class="text-xs text-slate-400 hover:text-slate-600 font-semibold">
+                    닫기 ✕
+                </button>
+            </div>
+
+            <!-- Name Input Field -->
+            <div class="space-y-1">
+                <label class="text-xs font-bold text-slate-500">이름 수정</label>
+                <input type="text" id="user-name-input" placeholder="이름을 적어주세요" class="w-full font-bold text-slate-800 bg-slate-100 focus:bg-white focus:ring-2 focus:ring-red-500 rounded-xl px-3 py-2 text-sm transition-all border border-transparent">
+            </div>
+
+            <!-- Selected Menu Preview inside editing panel -->
+            <div id="selected-menu-preview" class="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                <!-- Dynamic Content -->
+            </div>
+
+            <!-- Options Area -->
+            <div class="flex flex-wrap gap-4 pt-1 justify-between items-center">
+                <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 select-none">
+                    <input type="checkbox" id="chk-double" class="w-4 h-4 rounded text-red-600 focus:ring-red-500">
+                    <span>곱배기 (+1,000원)</span>
+                </label>
+                <div class="flex items-center gap-1">
+                    <span class="text-xs font-bold text-slate-500 mr-1">결제 방식</span>
+                    <select id="select-payment" class="text-xs bg-slate-100 border border-slate-200 rounded-lg p-1.5 font-semibold text-slate-700 focus:outline-none">
+                        <option value="cash">현금가 할인</option>
+                        <option value="normal">정상가 적용</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Custom Requests -->
+            <div class="space-y-1">
+                <label class="text-xs font-bold text-slate-500">요청사항</label>
+                <input type="text" id="user-request-input" placeholder="예: 양파 많이, 단무지 빼주세요" class="w-full text-xs border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-red-500 bg-white">
+            </div>
+
+            <!-- Menu Picker Area inside Edit Panel -->
+            <div class="space-y-2.5 pt-2 border-t border-slate-100">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-slate-500">메뉴판에서 선택</span>
+                    <input type="text" id="menu-search" placeholder="🔍 메뉴 검색..." class="text-xs border border-slate-200 rounded-lg px-2.5 py-1 w-32 focus:outline-none focus:ring-1 focus:ring-red-500" oninput="renderMenus()">
+                </div>
+                
+                <!-- Categorized buttons -->
+                <div class="flex gap-1 overflow-x-auto pb-1 scrollbar-none" id="category-tabs">
+                    <!-- Loaded dynamically in js -->
+                </div>
+
+                <!-- Menu Item Selector -->
+                <div class="grid grid-cols-1 gap-1.5 max-h-48 overflow-y-auto pr-1" id="menu-picker-list">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="pt-2 flex gap-2">
+                <button onclick="submitCurrentOrder()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-xl shadow text-sm transition-all text-center">
+                    💾 주문 저장 / 업데이트
+                </button>
+                <button onclick="clearCurrentOrder()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 px-4 rounded-xl text-sm transition-all">
+                    비우기
+                </button>
+            </div>
+        </div>
+
+        <!-- 3. ADMIN SUMMARY PANEL (Visible when Admin Mode is ON) -->
+        <div id="admin-summary-card" class="hidden bg-slate-900 text-white p-5 rounded-2xl shadow-xl space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">📋</span>
+                    <h2 class="font-extrabold text-base text-white">카카오톡 전송용 취합 결과</h2>
+                </div>
+                <button onclick="copyKakaoText()" class="bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-black text-xs px-3 py-1.5 rounded-xl shadow transition-all flex items-center gap-1">
+                    <span>💬</span> 결과 복사
+                </button>
+            </div>
+
+            <!-- Kakao Preview Box -->
+            <pre id="kakao-preview" class="bg-slate-950 text-slate-300 p-4 rounded-xl text-xs font-mono overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-60 border border-slate-800"></pre>
+        </div>
+
+    </main>
+
+    <!-- Custom Dialog / Modal for Clear & Init Confirmations -->
+    <div id="confirm-modal" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4">
+            <h4 class="font-black text-lg text-slate-800" id="confirm-title">알림</h4>
+            <p class="text-xs text-slate-500 leading-relaxed" id="confirm-desc">정말로 초기화하시겠습니까?</p>
+            <div class="flex gap-2 justify-end">
+                <button onclick="closeConfirmModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold px-4 py-2 rounded-xl">취소</button>
+                <button id="confirm-ok-btn" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-xl">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Imports & App Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // 1. Menu Database Matching User Photo
+        const MENU_DATA = [
+            // 면류
+            { id: 'm1', category: '면류', name: '짜장면', cashPrice: 4000, normalPrice: 6000 },
+            { id: 'm2', category: '면류', name: '간짜장', cashPrice: 6000, normalPrice: 7000 },
+            { id: 'm3', category: '면류', name: '짬뽕', cashPrice: 6000, normalPrice: 7000 },
+            { id: 'm4', category: '면류', name: '우동', cashPrice: 6000, normalPrice: 7000 },
+            { id: 'm5', category: '면류', name: '울면', cashPrice: 6000, normalPrice: 7000 },
+            { id: 'm6', category: '면류', name: '쟁반짜장', cashPrice: 8000, normalPrice: 9000 },
+            { id: 'm7', category: '면류', name: '불(매운)쟁반짜장', cashPrice: 8000, normalPrice: 9000 },
+            { id: 'm8', category: '면류', name: '삼선간짜장', cashPrice: 10000, normalPrice: 11000 },
+            { id: 'm9', category: '면류', name: '삼선짬뽕', cashPrice: 12000, normalPrice: 13000 },
+            { id: 'm10', category: '면류', name: '삼선우동', cashPrice: 12000, normalPrice: 13000 },
+            { id: 'm11', category: '면류', name: '삼선울면', cashPrice: 12000, normalPrice: 13000 },
+            { id: 'm12', category: '면류', name: '불(매운)해물짬뽕', cashPrice: 12000, normalPrice: 13000 },
+            { id: 'm13', category: '면류', name: '소고기(숙주)짬뽕', cashPrice: 10000, normalPrice: 11000 },
+            // 밥류
+            { id: 'r1', category: '밥류', name: '짜장밥', cashPrice: 7000, normalPrice: 8000 },
+            { id: 'r2', category: '밥류', name: '짬뽕밥', cashPrice: 7000, normalPrice: 8000 },
+            { id: 'r3', category: '밥류', name: '사천볶음밥', cashPrice: 7000, normalPrice: 8000 },
+            { id: 'r4', category: '밥류', name: '잡채밥', cashPrice: 8000, normalPrice: 9000 },
+            { id: 'r5', category: '밥류', name: '송이덮밥', cashPrice: 8000, normalPrice: 9000 },
+            { id: 'r6', category: '밥류', name: '쟁반짜장밥', cashPrice: 8000, normalPrice: 9000 },
+            { id: 'r7', category: '밥류', name: '고추잡채밥', cashPrice: 9000, normalPrice: 10000 },
+            { id: 'r8', category: '밥류', name: '새우볶음밥', cashPrice: 9000, normalPrice: 10000 },
+            { id: 'r9', category: '밥류', name: '삼선볶음밥', cashPrice: 10000, normalPrice: 11000 },
+            { id: 'r10', category: '밥류', name: '삼선짬뽕밥', cashPrice: 13000, normalPrice: 14000 },
+            // 시원한 면류
+            { id: 'c1', category: '시원한 면류', name: '콩국수', cashPrice: 7000, normalPrice: 8000 },
+            { id: 'c2', category: '시원한 면류', name: '냉짬뽕', cashPrice: 8000, normalPrice: 9000 },
+            { id: 'c3', category: '시원한 면류', name: '냉우동', cashPrice: 8000, normalPrice: 9000 },
+            // 두가지맛
+            { id: 'd1', category: '두가지맛', name: '짬짜면', cashPrice: 7000, normalPrice: 8000 },
+            { id: 'd2', category: '두가지맛', name: '볶짜면', cashPrice: 8000, normalPrice: 9000 },
+            { id: 'd3', category: '두가지맛', name: '볶짬면', cashPrice: 8000, normalPrice: 9000 },
+            { id: 'd4', category: '두가지맛', name: '탕짜면', cashPrice: 9000, normalPrice: 10000 },
+            { id: 'd5', category: '두가지맛', name: '탕짬면', cashPrice: 9000, normalPrice: 10000 },
+            { id: 'd6', category: '두가지맛', name: '탕볶밥', cashPrice: 10000, normalPrice: 11000 },
+            // 요리류
+            { id: 'y1', category: '요리/탕류', name: '탕수육(소)', cashPrice: 15000, normalPrice: 17000 },
+            { id: 'y2', category: '요리/탕류', name: '사천탕수육', cashPrice: 18000, normalPrice: 20000 },
+            { id: 'y3', category: '요리/탕류', name: '깐풍기', cashPrice: 20000, normalPrice: 22000 },
+            { id: 'y4', category: '요리/탕류', name: '깐쇼새우', cashPrice: 22000, normalPrice: 24000 },
+            { id: 'y5', category: '요리/탕류', name: '고추잡채', cashPrice: 22000, normalPrice: 24000 },
+            { id: 'y6', category: '요리/탕류', name: '양장피', cashPrice: 25000, normalPrice: 27000 },
+            { id: 'y7', category: '요리/탕류', name: '군만두', cashPrice: 5000, normalPrice: 6000 }
+        ];
+
+        // Categories List
+        const CATEGORIES = ['면류', '밥류', '시원한 면류', '두가지맛', '요리/탕류'];
+
+        // 8 Default Surnames Requested
+        const DEFAULT_NAMES = ["박", "표", "이", "정", "구", "최", "한", "홍"];
+
+        // 2. Global State Variable
+        let state = {
+            isAdmin: false,
+            activeSlotId: null, // slot currently editing (1 to 8)
+            activeCategory: '면류',
+            selectedMenu: null, // menu selected in editing panel
+            dbSlots: {}, // Realtime Cloud data loaded from Firebase
+            isInitialized: false
+        };
+
+        // Initialize Firebase with system provided configurations
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'shared-짜장-order';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "",
+            authDomain: "",
+            projectId: "",
+            storageBucket: "",
+            messagingSenderId: "",
+            appId: ""
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        let currentUser = null;
+
+        // Firebase Auth initialization (Rule 3)
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Firebase auth error:", error);
+                document.getElementById('connection-status').innerText = "⚠️ 로그인 실패 (오프라인 모드)";
+            }
+        };
+        initAuth();
+
+        onAuthStateChanged(auth, (user) => {
+            currentUser = user;
+            if (user) {
+                document.getElementById('connection-status').innerText = "⚡ 실시간 클라우드 온라인";
+                setupRealtimeListener();
+            }
+        });
+
+        // 3. Realtime Firestore Listener (RULE 1 & RULE 2 applied)
+        function setupRealtimeListener() {
+            if (!currentUser) return;
+            
+            // STRICT RULE 1 path
+            const ordersCol = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
+
+            // Listening real-time without complex queries (RULE 2)
+            onSnapshot(ordersCol, (snapshot) => {
+                const cloudData = {};
+                snapshot.forEach(doc => {
+                    cloudData[doc.id] = doc.data();
+                });
+
+                // Merge database results with local default slots (1 to 8)
+                for (let i = 1; i <= 8; i++) {
+                    const docId = `slot_${i}`;
+                    if (cloudData[docId]) {
+                        state.dbSlots[i] = cloudData[docId];
+                    } else {
+                        // default values based on target surnames
+                        state.dbSlots[i] = {
+                            id: i,
+                            name: DEFAULT_NAMES[i-1] || `사람 ${i}`,
+                            menu: null,
+                            isDouble: false,
+                            paymentType: 'cash',
+                            request: ''
+                        };
+                    }
+                }
+
+                state.isInitialized = true;
+                renderSlots();
+                updateKakaoPreview();
+            }, (error) => {
+                console.error("Database sync error: ", error);
+                document.getElementById('connection-status').innerText = "⚠️ 동기화 오류 발생";
+                showToast('cloud-error-toast', '❌ 데이터를 불러오는 도중 오류가 발생했습니다.');
+            });
+        }
+
+        // 4. Save/Update Cloud Action (Rule 3 compliant)
+        async function saveOrderToCloud(slotId, orderPayload) {
+            if (!currentUser) {
+                showToast('cloud-error-toast', '❌ 오프라인 상태입니다.');
+                return;
+            }
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', `slot_${slotId}`);
+                await setDoc(docRef, orderPayload);
+                showToast('cloud-success-toast', `☁️ ${orderPayload.name}님의 주문이 실시간 업데이트되었습니다!`);
+            } catch (e) {
+                console.error("Cloud save failed:", e);
+                showToast('cloud-error-toast', '❌ 실시간 저장 실패! 네트워크를 확인하세요.');
+            }
+        }
+
+        // 5. App Render Logic
+        function renderSlots() {
+            const container = document.getElementById('realtime-slots');
+            container.innerHTML = '';
+
+            for (let i = 1; i <= 8; i++) {
+                const slot = state.dbSlots[i];
+                if (!slot) continue;
+
+                const hasMenu = slot.menu !== null;
+                const isCurrentActive = state.activeSlotId === i;
+                
+                // Card Styling
+                let cardClass = "flex justify-between items-center p-3.5 rounded-2xl border transition-all text-left ";
+                if (isCurrentActive) {
+                    cardClass += "border-red-600 bg-red-50/70 ring-2 ring-red-500/25";
+                } else if (hasMenu) {
+                    cardClass += "border-slate-200 bg-white hover:bg-slate-50 shadow-sm";
+                } else {
+                    cardClass += "border-dashed border-slate-200 bg-slate-50/50 text-slate-400 hover:bg-slate-50";
+                }
+
+                // Menu details HTML
+                let menuInfoHTML = '';
+                if (hasMenu) {
+                    const price = slot.paymentType === 'cash' ? slot.menu.cashPrice : slot.menu.normalPrice;
+                    const finalPrice = price + (slot.isDouble ? 1000 : 0);
+                    
+                    menuInfoHTML = `
+                        <div class="text-right">
+                            <span class="text-xs text-red-600 font-extrabold block">
+                                ${slot.menu.name}${slot.isDouble ? ' (곱배기)' : ''}
+                            </span>
+                            <span class="text-[10px] text-slate-400 block mt-0.5">
+                                ${slot.paymentType === 'cash' ? '현금할인' : '정상가'} · ${finalPrice.toLocaleString()}원
+                            </span>
+                        </div>
+                    `;
+                } else {
+                    menuInfoHTML = `
+                        <span class="text-xs text-slate-400 italic">미입력</span>
+                    `;
+                }
+
+                const requestBadge = (hasMenu && slot.request) ? `
+                    <div class="text-[10px] text-amber-600 font-medium mt-1 truncate max-w-[200px]">
+                        📝 ${slot.request}
+                    </div>
+                ` : '';
+
+                container.innerHTML += `
+                    <button onclick="selectSlotForEdit(${i})" class="${cardClass}">
+                        <div class="flex items-center gap-3">
+                            <div class="w-6 h-6 rounded-lg ${hasMenu ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-400'} flex items-center justify-center text-xs font-black">
+                                ${i}
+                            </div>
+                            <div>
+                                <h4 class="font-extrabold text-sm text-slate-800">${slot.name}</h4>
+                                ${requestBadge}
+                            </div>
+                        </div>
+                        ${menuInfoHTML}
+                    </button>
+                `;
+            }
+        }
+
+        // Select a slot and load editing panel
+        window.selectSlotForEdit = function(slotId) {
+            state.activeSlotId = slotId;
+            const slot = state.dbSlots[slotId];
+            if (!slot) return;
+
+            // Load values to fields
+            document.getElementById('user-name-input').value = slot.name;
+            document.getElementById('chk-double').checked = slot.isDouble;
+            document.getElementById('select-payment').value = slot.paymentType;
+            document.getElementById('user-request-input').value = slot.request || '';
+            state.selectedMenu = slot.menu;
+
+            if (slot.menu) {
+                state.activeCategory = slot.menu.category;
+            }
+
+            // Open panel UI
+            const panel = document.getElementById('edit-panel');
+            panel.classList.remove('hidden');
+            document.getElementById('edit-panel-title').innerText = `${slot.name} 슬롯 주문 작성`;
+
+            renderSlots();
+            renderCategoryTabs();
+            renderSelectedMenuPreview();
+            renderMenus();
+
+            // Smooth scroll to edit panel
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        window.closeEditPanel = function() {
+            state.activeSlotId = null;
+            document.getElementById('edit-panel').classList.add('hidden');
+            renderSlots();
+        }
+
+        // Dynamic Categories
+        function renderCategoryTabs() {
+            const container = document.getElementById('category-tabs');
+            container.innerHTML = '';
+            
+            CATEGORIES.forEach(cat => {
+                const isActive = state.activeCategory === cat;
+                const activeClass = "px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-bold whitespace-nowrap";
+                const inactiveClass = "px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold whitespace-nowrap hover:bg-slate-200";
+                
+                container.innerHTML += `
+                    <button onclick="changeCategory('${cat}')" class="${isActive ? activeClass : inactiveClass}">
+                        ${cat}
+                    </button>
+                `;
+            });
+        }
+
+        window.changeCategory = function(cat) {
+            state.activeCategory = cat;
+            renderCategoryTabs();
+            renderMenus();
+        }
+
+        // Render List of Menu Items
+        window.renderMenus = function() {
+            const container = document.getElementById('menu-picker-list');
+            container.innerHTML = '';
+
+            const searchVal = document.getElementById('menu-search').value.trim().toLowerCase();
+            let filtered = MENU_DATA;
+
+            if (searchVal !== '') {
+                filtered = MENU_DATA.filter(m => m.name.toLowerCase().includes(searchVal));
+            } else {
+                filtered = MENU_DATA.filter(m => m.category === state.activeCategory);
+            }
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="text-center py-4 text-xs text-slate-400">찾으시는 메뉴가 메뉴판에 없습니다.</div>`;
+                return;
+            }
+
+            filtered.forEach(m => {
+                const isSelected = state.selectedMenu && state.selectedMenu.id === m.id;
+                let btnClass = "flex justify-between items-center p-2.5 rounded-xl border text-left transition-all text-xs ";
+                if (isSelected) {
+                    btnClass += "border-red-600 bg-red-50/50 shadow-inner font-bold";
+                } else {
+                    btnClass += "border-slate-100 bg-slate-50 hover:bg-slate-100/80";
+                }
+
+                container.innerHTML += `
+                    <button onclick="selectMenuInPanel('${m.id}')" class="${btnClass}">
+                        <div>
+                            <span class="text-[10px] text-slate-400 block">${m.category}</span>
+                            <span class="font-bold text-slate-800">${m.name}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-red-600 font-extrabold block">현금 ${m.cashPrice.toLocaleString()}원</span>
+                            <span class="text-slate-400 text-[10px] block">정상 ${m.normalPrice.toLocaleString()}원</span>
+                        </div>
+                    </button>
+                `;
+            });
+        }
+
+        window.selectMenuInPanel = function(menuId) {
+            const menu = MENU_DATA.find(m => m.id === menuId);
+            if (menu) {
+                state.selectedMenu = menu;
+                renderSelectedMenuPreview();
+                renderMenus();
+            }
+        }
+
+        function renderSelectedMenuPreview() {
+            const container = document.getElementById('selected-menu-preview');
+            if (!state.selectedMenu) {
+                container.innerHTML = `
+                    <div class="text-center py-2 text-xs text-slate-400">
+                        위 메뉴판 탭에서 짜장면, 짬뽕 등 메뉴를 직접 선택해 주세요!
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <span class="bg-red-100 text-red-700 text-[9px] px-1.5 py-0.5 rounded-full font-extrabold uppercase tracking-wide">오늘 먹을 메뉴</span>
+                            <h4 class="font-extrabold text-slate-800 text-sm mt-1">
+                                ${state.selectedMenu.name}
+                            </h4>
+                        </div>
+                        <div class="text-right">
+                            <span class="font-black text-red-600 text-sm">${state.selectedMenu.cashPrice.toLocaleString()}원 (현금가)</span>
+                            <span class="text-[10px] text-slate-400 block">정상가: ${state.selectedMenu.normalPrice.toLocaleString()}원</span>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Action: Submit Single Order to Firebase
+        window.submitCurrentOrder = async function() {
+            if (!state.activeSlotId) return;
+
+            const nameInput = document.getElementById('user-name-input').value.trim();
+            if (!nameInput) {
+                showToast('cloud-error-toast', '이름을 꼭 입력해 주세요!');
+                return;
+            }
+
+            if (!state.selectedMenu) {
+                showToast('cloud-error-toast', '메뉴를 꼭 선택해 주세요!');
+                return;
+            }
+
+            const isDouble = document.getElementById('chk-double').checked;
+            const paymentType = document.getElementById('select-payment').value;
+            const request = document.getElementById('user-request-input').value.trim();
+
+            const orderPayload = {
+                id: state.activeSlotId,
+                name: nameInput,
+                menu: state.selectedMenu,
+                isDouble: isDouble,
+                paymentType: paymentType,
+                request: request,
+                updatedAt: Date.now()
+            };
+
+            await saveOrderToCloud(state.activeSlotId, orderPayload);
+            closeEditPanel();
+        }
+
+        // Action: Clear Single Order from Slot
+        window.clearCurrentOrder = async function() {
+            if (!state.activeSlotId) return;
+            
+            const defaultPayload = {
+                id: state.activeSlotId,
+                name: DEFAULT_NAMES[state.activeSlotId-1] || `사람 ${state.activeSlotId}`,
+                menu: null,
+                isDouble: false,
+                paymentType: 'cash',
+                request: '',
+                updatedAt: Date.now()
+            };
+
+            await saveOrderToCloud(state.activeSlotId, defaultPayload);
+            closeEditPanel();
+        }
+
+        // Role / Mode Toggles
+        window.toggleAdminView = function() {
+            state.isAdmin = !state.isAdmin;
+            const badge = document.getElementById('role-badge');
+            const welcomeCard = document.getElementById('welcome-card');
+            const summaryCard = document.getElementById('admin-summary-card');
+            const resetBtn = document.getElementById('btn-reset-all');
+            const slotsTitle = document.getElementById('slots-title');
+
+            if (state.isAdmin) {
+                badge.className = "bg-amber-400 text-slate-950 text-xs font-black px-3 py-1.5 rounded-full transition-all";
+                badge.innerText = "👑 관리자 모드";
+                welcomeCard.classList.add('hidden');
+                summaryCard.classList.remove('hidden');
+                resetBtn.classList.remove('hidden');
+                slotsTitle.innerText = "전체 주문 현황 (관리자)";
+            } else {
+                badge.className = "bg-slate-900/50 hover:bg-slate-900 text-slate-200 text-xs font-bold px-3 py-1.5 rounded-full transition-all";
+                badge.innerText = "👤 일반 모드";
+                welcomeCard.classList.remove('hidden');
+                summaryCard.classList.add('hidden');
+                resetBtn.classList.add('hidden');
+                slotsTitle.innerText = "주문 슬롯 (8인)";
+            }
+        }
+
+        // Dynamic Kakao Text Generation (8인 대응)
+        function generateKakaoText() {
+            if (!state.isInitialized) return "데이터를 동기화하는 중...";
+
+            let activeCount = 0;
+            let totalSum = 0;
+            const menuCounts = {};
+            const details = [];
+
+            for (let i = 1; i <= 8; i++) {
+                const slot = state.dbSlots[i];
+                if (!slot) continue;
+
+                if (!slot.menu) {
+                    details.push(`${i}. ${slot.name}: [미지정]`);
+                    continue;
+                }
+
+                activeCount++;
+                const itemPrice = slot.paymentType === 'cash' ? slot.menu.cashPrice : slot.menu.normalPrice;
+                const doublePrice = slot.isDouble ? 1000 : 0;
+                const totalCost = itemPrice + doublePrice;
+                totalSum += totalCost;
+
+                let key = slot.menu.name;
+                if (slot.isDouble) key += ' (곱배기)';
+
+                menuCounts[key] = (menuCounts[key] || 0) + 1;
+
+                let line = `${i}. ${slot.name}: ${slot.menu.name}`;
+                if (slot.isDouble) line += ' [곱배기]';
+                line += ` (${slot.paymentType === 'cash' ? '현금가' : '정상가'} ${totalCost.toLocaleString()}원)`;
+                if (slot.request && slot.request.trim()) {
+                    line += ` *요청사항: ${slot.request.trim()}`;
+                }
+                details.push(line);
+            }
+
+            if (activeCount === 0) {
+                return "[🏮 중식당 실시간 취합 주문]\n등록된 실시간 주문이 없습니다.";
+            }
+
+            let text = `[🏮 중식당 실시간 취합 주문]\n`;
+            text += `• 총 인원: 8명 (${activeCount}명 선택 완료)\n`;
+            text += `• 예상 결제 총액: ${totalSum.toLocaleString()}원\n\n`;
+
+            text += `■ 메뉴별 수량 요약\n`;
+            Object.entries(menuCounts).forEach(([menuName, count]) => {
+                text += `- ${menuName} x ${count}개\n`;
+            });
+
+            text += `\n■ 개인별 주문 상세\n`;
+            text += details.join('\n');
+            text += `\n\n_Generated by 실시간 짜장면 주문기_`;
+
+            return text;
+        }
+
+        function updateKakaoPreview() {
+            document.getElementById('kakao-preview').textContent = generateKakaoText();
+        }
+
+        window.copyKakaoText = function() {
+            const rawText = generateKakaoText();
+            const tempArea = document.createElement("textarea");
+            tempArea.value = rawText;
+            document.body.appendChild(tempArea);
+            tempArea.select();
+            
+            try {
+                document.execCommand('copy');
+                showToast('cloud-success-toast', '✨ 카톡용 취합 결과가 클립보드에 복사되었습니다!');
+            } catch (err) {
+                showToast('cloud-error-toast', '복사 실패! 직접 선택해서 복사해 주세요.');
+            }
+            document.body.removeChild(tempArea);
+        }
+
+        // Custom Confirmation dialog (No browser alert/confirm)
+        let activeConfirmCallback = null;
+        window.openConfirmModal = function(title, desc, onOk) {
+            document.getElementById('confirm-title').innerText = title;
+            document.getElementById('confirm-desc').innerText = desc;
+            document.getElementById('confirm-modal').classList.remove('hidden');
+            activeConfirmCallback = onOk;
+        }
+
+        window.closeConfirmModal = function() {
+            document.getElementById('confirm-modal').classList.add('hidden');
+            activeConfirmCallback = null;
+        }
+
+        document.getElementById('confirm-ok-btn').onclick = function() {
+            if (activeConfirmCallback) {
+                activeConfirmCallback();
+            }
+            closeConfirmModal();
+        }
+
+        // Confirm Entire Cloud Reset (8인 리셋 대응)
+        window.confirmResetAll = function() {
+            openConfirmModal(
+                "🚨 전체 주문 초기화",
+                "모든 사람이 기록한 주문을 깨끗이 지우고 초기화 상태('박', '표' 등 성씨 기본값)로 만드시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+                async () => {
+                    if (!currentUser) return;
+                    try {
+                        for (let i = 1; i <= 8; i++) {
+                            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', `slot_${i}`);
+                            await setDoc(docRef, {
+                                id: i,
+                                name: DEFAULT_NAMES[i-1] || `사람 ${i}`,
+                                menu: null,
+                                isDouble: false,
+                                paymentType: 'cash',
+                                request: '',
+                                updatedAt: Date.now()
+                            });
+                        }
+                        showToast('cloud-success-toast', '🔄 모든 슬롯이 초기화되었습니다!');
+                        closeEditPanel();
+                    } catch (err) {
+                        console.error("Reset error:", err);
+                        showToast('cloud-error-toast', '❌ 초기화에 실패했습니다.');
+                    }
+                }
+            );
+        }
+
+        // Toast feedback handler
+        function showToast(id, msg) {
+            const toast = document.getElementById(id);
+            if (!toast) return;
+            toast.innerText = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
